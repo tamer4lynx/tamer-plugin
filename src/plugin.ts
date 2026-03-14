@@ -20,7 +20,7 @@ export type TamerPluginOptions = Record<
   | RsbuildPlugin
 >
 
-const TAMER_CONFIG_NAMES = ['tamer.config.ts', 'tamer.config.mjs', 'tamer.config.js']
+const TAMER_CONFIG_NAMES = ['tamer.config.json', 'tamer.config.ts', 'tamer.config.mjs', 'tamer.config.js']
 
 function hasTamerConfigExport(pkgJson: { exports?: unknown }): boolean {
   const exp = pkgJson.exports
@@ -97,10 +97,16 @@ function getTamerConfigFilePath(pkgDir: string, pkg: { exports?: unknown }): str
   } else if ('./tamer.config' in (exp as object)) {
     subpath = resolveTamerConfigExport((exp as Record<string, unknown>)['./tamer.config'])
   }
-  if (!subpath || typeof subpath !== 'string' || !subpath.startsWith('./')) return null
-  const rel = subpath.replace(/^\.\//, '')
-  const full = path.join(pkgDir, rel)
-  return fs.existsSync(full) ? path.resolve(full) : null
+  if (subpath && typeof subpath === 'string' && subpath.startsWith('./')) {
+    const rel = subpath.replace(/^\.\//, '')
+    const full = path.join(pkgDir, rel)
+    if (fs.existsSync(full)) return path.resolve(full)
+  }
+  for (const name of TAMER_CONFIG_NAMES) {
+    const full = path.join(pkgDir, name)
+    if (fs.existsSync(full)) return path.resolve(full)
+  }
+  return null
 }
 
 function findWorkspaceRoot(start: string): string | null {
@@ -181,11 +187,19 @@ export function pluginTamer(options: TamerPluginOptions = {}): RsbuildPlugin {
 
       for (const name of TAMER_CONFIG_NAMES) {
         const configPath = path.join(cwd, name)
+        if (!fs.existsSync(configPath)) continue
         try {
-          const mod = await import(`${pathToFileURL(configPath).href}?t=${Date.now()}`)
-          const defaults = mod.default ?? mod.tamerDefaults ?? mod
+          let defaults: Record<string, unknown> | null = null
+          if (name === 'tamer.config.json') {
+            const raw = fs.readFileSync(configPath, 'utf8')
+            defaults = JSON.parse(raw) as Record<string, unknown>
+          }
+          if (name !== 'tamer.config.json') {
+            const mod = await import(`${pathToFileURL(configPath).href}?t=${Date.now()}`)
+            defaults = (mod.default ?? mod.tamerDefaults ?? mod) as Record<string, unknown> | null
+          }
           if (typeof defaults === 'object' && defaults !== null) {
-            merged = { ...defaults }
+            merged = { ...defaults } as TamerPluginOptions
             for (const [k, v] of Object.entries(options)) {
               if (v === false) merged[k] = false
               else if (v !== true) merged[k] = v as TamerPluginOptions[string]
@@ -239,20 +253,26 @@ export function pluginTamer(options: TamerPluginOptions = {}): RsbuildPlugin {
         }
       }
 
-      const toAdd: RsbuildPlugin[] = []
-
-      for (const value of Object.values(merged)) {
-        if (value === false) continue
-        if (isPlugin(value)) toAdd.push(value)
+      const rsbuildConfigPartial = merged.rsbuildConfig as Record<string, unknown> | undefined
+      if (typeof rsbuildConfigPartial === 'object' && rsbuildConfigPartial !== null && 'modifyRsbuildConfig' in api) {
+        api.modifyRsbuildConfig((config) => {
+          const src = config.source || {}
+          const partialSrc = (rsbuildConfigPartial.source || {}) as Record<string, unknown>
+          const preEntry = [
+            ...(Array.isArray(src.preEntry) ? src.preEntry : src.preEntry ? [src.preEntry] : []),
+            ...(Array.isArray(partialSrc.preEntry) ? partialSrc.preEntry : partialSrc.preEntry ? [partialSrc.preEntry] : []),
+          ]
+          const seen = new Set<string>()
+          const deduped = preEntry.filter((e: string) => !seen.has(e) && seen.add(e))
+          return { ...config, source: { ...src, ...partialSrc, preEntry: deduped.length ? deduped : undefined } }
+        })
       }
 
-      if (toAdd.length === 0) return
+      for (const value of Object.values(merged)) {
+        if (value === false || value === rsbuildConfigPartial) continue
+        if (isPlugin(value)) await value.setup(api)
+      }
 
-      api.modifyRsbuildConfig((config) => {
-        const existing = config.plugins ?? []
-        config.plugins = [...existing, ...toAdd]
-        return config
-      })
     },
   }
 }

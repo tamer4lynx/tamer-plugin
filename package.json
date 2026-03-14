@@ -13,11 +13,11 @@
     }
   },
   "files": ["dist"],
-  "scripts": {
-    "build": "tsc"
-  },
   "peerDependencies": {
     "@rsbuild/core": "^1.0.0"
+  },
+  "scripts": {
+    "build": "tsc"
   },
   "devDependencies": {
     "@rsbuild/core": "^1.3.0",

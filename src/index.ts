@@ -1,2 +1,1 @@
-export { pluginTamer } from './plugin.js'
-export type { TamerPluginOptions } from './plugin.js'
+export { pluginTamer, type TamerPluginOptions } from './plugin.js'
