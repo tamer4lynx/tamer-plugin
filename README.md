@@ -11,7 +11,7 @@ No plugins are hardcoded; tamer.config and options supply all plugin instances.
 ## Install
 
 ```bash
-npm install tamer-plugin
+npm install @tamer4lynx/tamer-plugin
 ```
 
 Install any Tamer plugins you use (e.g. `tamer-router`) in the app.
@@ -23,7 +23,7 @@ Do **not** import tamer.config in lynx.config. Use **pluginTamer()** so the plug
 ```ts
 import { defineConfig } from '@lynx-js/rspeedy'
 import { pluginReactLynx } from '@lynx-js/react-rsbuild-plugin'
-import { pluginTamer } from 'tamer-plugin'
+import { pluginTamer } from '@tamer4lynx/tamer-plugin'
 
 export default defineConfig({
   plugins: [
