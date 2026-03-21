@@ -69,6 +69,27 @@ function hasTamerConfigExport(pkgJson: { exports?: unknown }): boolean {
   return './tamer.config' in (exp as object) || Object.keys(exp as object).some((k) => k === './tamer.config' || k.startsWith('./tamer.config'))
 }
 
+/** Like Node module resolution: walk from cwd up to the filesystem root and merge unique package names from each `node_modules` (hoisted deps live in ancestor folders). */
+function findPackagesWithTamerConfigFromAncestors(startDir: string): string[] {
+  const seen = new Set<string>()
+  const names: string[] = []
+  let dir = path.resolve(startDir)
+  const root = path.parse(dir).root
+  while (dir !== root) {
+    const nodeModulesDir = path.join(dir, 'node_modules')
+    if (fs.existsSync(nodeModulesDir)) {
+      for (const pkgName of findPackagesWithTamerConfig(nodeModulesDir)) {
+        if (!seen.has(pkgName)) {
+          seen.add(pkgName)
+          names.push(pkgName)
+        }
+      }
+    }
+    dir = path.dirname(dir)
+  }
+  return names.sort()
+}
+
 function findPackagesWithTamerConfig(nodeModulesDir: string): string[] {
   const names: string[] = []
   if (!fs.existsSync(nodeModulesDir)) return names
@@ -272,8 +293,7 @@ export function pluginTamer(options: TamerPluginOptions = {}): RsbuildPlugin {
             }
           }
         }
-        const nodeModules = path.join(cwd, 'node_modules')
-        const pkgNames = findPackagesWithTamerConfig(nodeModules)
+        const pkgNames = findPackagesWithTamerConfigFromAncestors(cwd)
         for (const pkgName of pkgNames) {
           try {
             const mod = await import(`${pkgName}/tamer.config`)
