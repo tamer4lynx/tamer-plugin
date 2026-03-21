@@ -8,6 +8,8 @@ Optional middleman for Tamer plugins: **pluginTamer** finds and imports **tamer.
 
 No plugins are hardcoded; tamer.config and options supply all plugin instances.
 
+**Rsbuild defaults:** `pluginTamer` sets `server.base` to `/${basename(Lynx package dir)}` so it matches Tamer’s dev server path (`/${folderName}`), unless you already set `server.base`. The Lynx directory is taken from **`tamer.config.json`** at the nearest ancestor (walk up from the Rsbuild root): `lynxProject` or `paths.lynxProject`, resolved relative to the Tamer project root—the same idea as Tamer’s host config. If no `tamer.config.json` or no `lynxProject`, it falls back to the basename of the Rsbuild project root. It also sets `output.assetPrefix` to `'auto'` when unset so asset URLs stay relative to the bundle (works with that base path and avoids Lynx toolchain issues with path-only `publicPath`).
+
 ## Install
 
 ```bash

@@ -21,6 +21,44 @@ export type TamerPluginOptions = Record<
 >
 
 const TAMER_CONFIG_NAMES = ['tamer.config.json', 'tamer.config.ts', 'tamer.config.mjs', 'tamer.config.js']
+const TAMER_ROOT_CONFIG = 'tamer.config.json'
+
+function findTamerProjectRoot(start: string): string | null {
+  let dir = path.resolve(start)
+  const root = path.parse(dir).root
+  while (dir !== root) {
+    if (fs.existsSync(path.join(dir, TAMER_ROOT_CONFIG))) return dir
+    dir = path.dirname(dir)
+  }
+  return null
+}
+
+function loadTamerRootConfigJson(projectRoot: string): Record<string, unknown> | null {
+  const p = path.join(projectRoot, TAMER_ROOT_CONFIG)
+  if (!fs.existsSync(p)) return null
+  try {
+    return JSON.parse(fs.readFileSync(p, 'utf8')) as Record<string, unknown>
+  } catch {
+    return null
+  }
+}
+
+/** Matches host `resolveHostPaths`: `lynxProject` or `paths.lynxProject` relative to the Tamer repo root. */
+function resolveLynxDirForServerBase(buildRoot: string): string {
+  const tamerRoot = findTamerProjectRoot(buildRoot)
+  if (!tamerRoot) return buildRoot
+  const cfg = loadTamerRootConfigJson(tamerRoot)
+  if (!cfg) return buildRoot
+  const paths = cfg.paths
+  const pathsObj = paths && typeof paths === 'object' && !Array.isArray(paths) ? (paths as Record<string, unknown>) : {}
+  const explicit =
+    (typeof cfg.lynxProject === 'string' ? cfg.lynxProject : undefined) ??
+    (typeof pathsObj.lynxProject === 'string' ? pathsObj.lynxProject : undefined)
+  if (!explicit) return buildRoot
+  const resolved = path.isAbsolute(explicit) ? explicit : path.join(tamerRoot, explicit)
+  if (fs.existsSync(resolved)) return path.resolve(resolved)
+  return buildRoot
+}
 
 function hasTamerConfigExport(pkgJson: { exports?: unknown }): boolean {
   const exp = pkgJson.exports
@@ -254,17 +292,33 @@ export function pluginTamer(options: TamerPluginOptions = {}): RsbuildPlugin {
       }
 
       const rsbuildConfigPartial = merged.rsbuildConfig as Record<string, unknown> | undefined
-      if (typeof rsbuildConfigPartial === 'object' && rsbuildConfigPartial !== null && 'modifyRsbuildConfig' in api) {
+
+      if ('modifyRsbuildConfig' in api) {
         api.modifyRsbuildConfig((config) => {
-          const src = config.source || {}
-          const partialSrc = (rsbuildConfigPartial.source || {}) as Record<string, unknown>
-          const preEntry = [
-            ...(Array.isArray(src.preEntry) ? src.preEntry : src.preEntry ? [src.preEntry] : []),
-            ...(Array.isArray(partialSrc.preEntry) ? partialSrc.preEntry : partialSrc.preEntry ? [partialSrc.preEntry] : []),
-          ]
-          const seen = new Set<string>()
-          const deduped = preEntry.filter((e: string) => !seen.has(e) && seen.add(e))
-          return { ...config, source: { ...src, ...partialSrc, preEntry: deduped.length ? deduped : undefined } }
+          const lynxDir = resolveLynxDirForServerBase(cwd)
+          const tamerBase = `/${path.basename(lynxDir)}`
+          const next: Record<string, unknown> = { ...config }
+          if (typeof rsbuildConfigPartial === 'object' && rsbuildConfigPartial !== null) {
+            const src = config.source || {}
+            const partialSrc = (rsbuildConfigPartial.source || {}) as Record<string, unknown>
+            const preEntry = [
+              ...(Array.isArray(src.preEntry) ? src.preEntry : src.preEntry ? [src.preEntry] : []),
+              ...(Array.isArray(partialSrc.preEntry) ? partialSrc.preEntry : partialSrc.preEntry ? [partialSrc.preEntry] : []),
+            ]
+            const seen = new Set<string>()
+            const deduped = preEntry.filter((e: string) => !seen.has(e) && seen.add(e))
+            next.source = { ...src, ...partialSrc, preEntry: deduped.length ? deduped : undefined }
+          }
+
+          const server = (config.server || {}) as Record<string, unknown>
+          next.server = { ...server, base: server.base ?? tamerBase }
+
+          const output = (config.output || {}) as Record<string, unknown>
+          if (output.assetPrefix === undefined) {
+            next.output = { ...output, assetPrefix: 'auto' }
+          }
+
+          return next as typeof config
         })
       }
 
