@@ -1,7 +1,10 @@
 {
   "name": "@tamer4lynx/tamer-plugin",
-  "version": "0.0.1",
-  "publishConfig": { "access": "public", "tag": "prerelease" },
+  "version": "0.0.2",
+  "publishConfig": {
+    "access": "public",
+    "tag": "prerelease"
+  },
   "type": "module",
   "description": "Optional middleman for Tamer plugins in lynx.config: inject defaults from tamer.config or overrides, or disable by name.",
   "main": "dist/index.js",
@@ -13,7 +16,9 @@
       "default": "./dist/index.js"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "peerDependencies": {
     "@rsbuild/core": "^1.0.0"
   },
@@ -27,9 +32,14 @@
   "engines": {
     "node": ">=18"
   },
-  "repository": { "type": "git", "url": "https://github.com/tamer4lynx/tamer-plugin.git" },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tamer4lynx/tamer-plugin.git"
+  },
   "homepage": "https://github.com/tamer4lynx/tamer-plugin#readme",
-  "bugs": { "url": "https://github.com/tamer4lynx/tamer-plugin/issues" },
+  "bugs": {
+    "url": "https://github.com/tamer4lynx/tamer-plugin/issues"
+  },
   "author": "Nanofuxion",
   "license": "MIT"
 }
