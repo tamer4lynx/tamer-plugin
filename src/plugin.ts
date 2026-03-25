@@ -271,6 +271,21 @@ export function pluginTamer(options: TamerPluginOptions = {}): RsbuildPlugin {
         }
       }
 
+      if (loaded) {
+        const pkgNames = findPackagesWithTamerConfigFromAncestors(cwd)
+        for (const pkgName of pkgNames) {
+          try {
+            const mod = await import(`${pkgName}/tamer.config`)
+            const defaults = mod.default ?? mod.tamerDefaults ?? mod
+            if (typeof defaults === 'object' && defaults !== null) {
+              merged = { ...defaults, ...merged }
+            }
+          } catch {
+            // skip
+          }
+        }
+      }
+
       if (!loaded) {
         const workspaceRoot = findWorkspaceRoot(cwd)
         if (workspaceRoot) {
