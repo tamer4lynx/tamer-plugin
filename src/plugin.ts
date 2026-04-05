@@ -284,6 +284,10 @@ export function pluginTamer(options: TamerPluginOptions = {}): RsbuildPlugin {
             // skip
           }
         }
+        for (const [k, v] of Object.entries(options)) {
+          if (v === false) merged[k] = false
+          else if (v !== true) merged[k] = v as TamerPluginOptions[string]
+        }
       }
 
       if (!loaded) {
