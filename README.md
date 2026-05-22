@@ -10,7 +10,7 @@ No plugins are hardcoded; tamer.config and options supply all plugin instances.
 
 **Rsbuild defaults:** `pluginTamer` sets `server.base` to `/${basename(Lynx package dir)}` so it matches Tamer’s dev server path (`/${folderName}`), unless you already set `server.base`. The Lynx directory is taken from **`tamer.config.json`** at the nearest ancestor (walk up from the Rsbuild root): `lynxProject` or `paths.lynxProject`, resolved relative to the Tamer project root—the same idea as Tamer’s host config. If no `tamer.config.json` or no `lynxProject`, it falls back to the basename of the Rsbuild project root. It also sets `output.assetPrefix` to `'auto'` when unset so asset URLs stay relative to the bundle (works with that base path and avoids Lynx toolchain issues with path-only `publicPath`).
 
-**Inline assets:** `pluginTamer` adds an Rspack `asset/inline` rule for imports with `?inline`, so image/font imports such as `import logo from './logo.png?inline'` resolve to data URLs.
+**Assets:** `pluginTamer` keeps Lynx/Rspeedy's normal asset behavior: JavaScript imports, CSS `url()`, `?url`, and `?inline` are framework-agnostic URL strings. The `asset/inline` Rspack rule for `?inline` imports lives in the **`@tamer4lynx/tamer-asset`** package (moved there from tamer-plugin); `pluginTamer` composes it automatically. The plugin emits `dist/tamer-assets.json` listing all static files produced by the build.
 
 ## Install
 
@@ -39,6 +39,33 @@ export default defineConfig({
   ],
 })
 ```
+
+## Assets
+
+Imported assets stay bundle-relative and can be used directly in Lynx elements:
+
+```ts
+import logo from './assets/logo.png'
+
+export function App() {
+  return <image src={logo} />
+}
+```
+
+For code that wants an Expo-like wrapper, use the `./assets` export:
+
+```ts
+import { Asset, resolveAssetSource } from '@tamer4lynx/tamer-plugin/assets'
+import logo from './assets/logo.png'
+import inlineLogo from './assets/logo.png?inline'
+
+const logoAsset = Asset.fromModule(logo)   // .uri, .width, .height
+const inline = resolveAssetSource(inlineLogo)
+```
+
+`Asset.fromModule()` and `resolveAssetSource()` are a lightweight shim — they do not depend on Expo. The `?inline` Rspack rule is provided by **`@tamer4lynx/tamer-asset`** and composed by `pluginTamer` automatically; you do not need to install `tamer-asset` separately.
+
+`t4l bundle` / `t4l build` copies the full `dist` tree into Android and iOS hosts, including `static/` and `tamer-assets.json`. Native embedded asset loading is provided by `tamer-host`, `tamer-dev-client`, `tamer-dev-app`, and CLI-generated host templates.
 
 ## tamer.config
 

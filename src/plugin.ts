@@ -2,6 +2,7 @@ import fs from 'fs'
 import path from 'path'
 import { pathToFileURL } from 'url'
 import type { RsbuildPlugin } from '@rsbuild/core'
+import { appendTamerAssetManifestPlugin, appendInlineAssetRule } from '@tamer4lynx/tamer-asset/plugin'
 
 function isPlugin(value: unknown): value is RsbuildPlugin {
   return (
@@ -60,32 +61,6 @@ function resolveLynxDirForServerBase(buildRoot: string): string {
   return buildRoot
 }
 
-function appendInlineAssetRule(config: Record<string, unknown>) {
-  const moduleConfig =
-    config.module && typeof config.module === 'object' && !Array.isArray(config.module)
-      ? (config.module as Record<string, unknown>)
-      : {}
-  const rules = Array.isArray(moduleConfig.rules) ? moduleConfig.rules : []
-  const hasInlineRule = rules.some((rule) => {
-    if (!rule || typeof rule !== 'object') return false
-    const r = rule as Record<string, unknown>
-    return String(r.type ?? '') === 'asset/inline' && String(r.resourceQuery ?? '').includes('inline')
-  })
-  if (hasInlineRule) return config
-  return {
-    ...config,
-    module: {
-      ...moduleConfig,
-      rules: [
-        ...rules,
-        {
-          resourceQuery: /inline/,
-          type: 'asset/inline',
-        },
-      ],
-    },
-  }
-}
 
 function hasTamerConfigExport(pkgJson: { exports?: unknown }): boolean {
   const exp = pkgJson.exports
@@ -386,14 +361,15 @@ export function pluginTamer(options: TamerPluginOptions = {}): RsbuildPlugin {
 
           const tools = (config.tools || {}) as Record<string, unknown>
           const rspack = tools.rspack
-          const inlineAssets = (config: Record<string, unknown>) => appendInlineAssetRule(config)
+          const tamerAssets = (cfg: Record<string, unknown>) =>
+            appendTamerAssetManifestPlugin(appendInlineAssetRule(cfg))
           next.tools = {
             ...tools,
             rspack: Array.isArray(rspack)
-              ? [...rspack, inlineAssets]
+              ? [...rspack, tamerAssets]
               : rspack
-                ? [rspack, inlineAssets]
-                : inlineAssets,
+                ? [rspack, tamerAssets]
+                : tamerAssets,
           }
 
           return next as typeof config

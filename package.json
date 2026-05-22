@@ -1,6 +1,6 @@
 {
   "name": "@tamer4lynx/tamer-plugin",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "publishConfig": {
     "access": "public",
     "tag": "prerelease"
@@ -14,11 +14,19 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
       "default": "./dist/index.js"
+    },
+    "./assets": {
+      "types": "./dist/assets.d.ts",
+      "import": "./dist/assets.js",
+      "default": "./dist/assets.js"
     }
   },
   "files": [
     "dist"
   ],
+  "dependencies": {
+    "@tamer4lynx/tamer-asset": "*"
+  },
   "peerDependencies": {
     "@rsbuild/core": "^1.0.0"
   },
